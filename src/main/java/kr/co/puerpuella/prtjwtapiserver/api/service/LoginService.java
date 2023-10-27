@@ -1,21 +1,28 @@
 package kr.co.puerpuella.prtjwtapiserver.api.service;
 
+import kr.co.puerpuella.prtjwtapiserver.api.dto.form.LoginForm;
+import kr.co.puerpuella.prtjwtapiserver.api.dto.result.LoginDto;
+import kr.co.puerpuella.prtjwtapiserver.common.enums.ErrorInfo;
+import kr.co.puerpuella.prtjwtapiserver.common.framework.CommonDTO;
+import kr.co.puerpuella.prtjwtapiserver.common.framework.CommonService;
+import kr.co.puerpuella.prtjwtapiserver.common.framework.exception.ValidationException;
+import kr.co.puerpuella.prtjwtapiserver.common.framework.response.CommonReturnData;
+import kr.co.puerpuella.prtjwtapiserver.model.entity.Member;
+import kr.co.puerpuella.prtjwtapiserver.model.repositories.MemberRepository;
 import kr.co.puerpuella.prtjwtapiserver.security.JwtFilter;
 import kr.co.puerpuella.prtjwtapiserver.security.TokenProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.lang.reflect.Member;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,16 +30,13 @@ public class LoginService extends CommonService implements UserDetailsService {
 
     private final MemberRepository memberRepository;
 
-    /**
-     * 패스워드 암호화 모듈
-     */
+    /** 패스워드 암호화 모듈 */
     private final PasswordEncoder passwordEncoder;
 
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
 
     private final TokenProvider tokenProvider;
 
-    private final RefreshTokenRepository refreshTokenRepository;
 
     @Override
     protected CommonReturnData execute(CommonDTO... params) {
@@ -48,75 +52,48 @@ public class LoginService extends CommonService implements UserDetailsService {
         }
 
         //패스워드 확인
-        if (!passwordEncoder.matches(loginForm.getPassword(), savedMember.getPassword())) {
+        if (!passwordEncoder.matches(loginForm.getPassword(), savedMember.getPassword())){
 
             throw new ValidationException(ErrorInfo.LOGIN_INVALID_PASSWORD);
         }
 
         // 신규 액세스토큰 발급
         String accessToken = createAccessToken(loginForm, savedMember);
-        // 신규 리프레시토큰 발급
-        String refreshTokenJwt = tokenProvider.createRefreshToken();
 
-        // 응답Header에 두 토큰 저장
-        setTokenToHeader(accessToken, refreshTokenJwt);
+        // 응답Header에 토큰 저장
+        setTokenToHeader(accessToken);
 
-        // Redis에 리프레시토큰 저장
-        saveRefreshTokenToRedis(savedMember, refreshTokenJwt);
-
-        return new LoginDto(accessToken, refreshTokenJwt);
-
-    }
-
-    /**
-     * Redis에 Refresh토큰을 저장한다.
-     *
-     * @param savedMember
-     * @param refreshTokenJwt
-     */
-    private void saveRefreshTokenToRedis(Member savedMember, String refreshTokenJwt) {
-        RefreshToken refreshToken = new RefreshToken(refreshTokenJwt, savedMember.getId());
-
-        refreshTokenRepository.save(refreshToken);
-    }
-
-    /**
-     * 발급받은 Access,Refresh 토큰을 응답Header에 설정한다.
-     *
-     * @param accessToken
-     * @param refreshTokenJwt
-     */
-    private static void setTokenToHeader(String accessToken, String refreshTokenJwt) {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.add(JwtFilter.AUTHORIZATION_HEADER, "Bearer " + accessToken);
-        httpHeaders.add(JwtFilter.REFRESH_HEADER, refreshTokenJwt);
+        return new LoginDto(accessToken);
     }
 
     /**
      * 새로운 Access토큰을 생성한다.
-     *
      * @param loginForm
      * @param savedMember
      * @return
      */
     private String createAccessToken(LoginForm loginForm, Member savedMember) {
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(savedMember.getId(), loginForm.getPassword());
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(savedMember.getUid(), loginForm.getPassword());
 
         Authentication authenticate = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
 
         SecurityContextHolder.getContext().setAuthentication(authenticate);
 
-        String authorities = authenticate.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.joining("."));
-
-        String jwt = tokenProvider.createAccessToken(authenticate.getName(), authorities);
+        String jwt = tokenProvider.createToken(authenticate);
         return jwt;
     }
 
     /**
+     * 발급받은 Access,Refresh 토큰을 응답Header에 설정한다.
+     * @param accessToken
+     */
+    private static void setTokenToHeader(String accessToken) {
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.add(JwtFilter.AUTHORIZATION_HEADER, "Bearer " + accessToken);
+    }
+
+    /**
      * UID로 회원정보를 조회한다.
-     *
      * @param uid the username identifying the user whose data is required.
      * @return
      * @throws UsernameNotFoundException
@@ -124,8 +101,8 @@ public class LoginService extends CommonService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String uid) throws UsernameNotFoundException {
 
-        Member member = memberRepository.findOneById(Long.parseLong(uid));
+        Member member = memberRepository.findOneByUid(Long.parseLong(uid));
 
-        return new User(member.getId().toString(), member.getPassword(), member.getAuthorities());
+        return new User(member.getUid().toString(),member.getPassword(), member.getAuthorities());
     }
 }
