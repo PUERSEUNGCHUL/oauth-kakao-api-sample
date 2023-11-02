@@ -15,6 +15,7 @@ import kr.co.puerpuella.oathserver.common.framework.response.CommonReturnData;
 import kr.co.puerpuella.oathserver.common.framework.response.ResponseBody;
 import kr.co.puerpuella.oathserver.model.entity.Member;
 import kr.co.puerpuella.oathserver.model.repositories.MemberRepository;
+import kr.co.puerpuella.oathserver.security.SecurityUtil;
 import kr.co.puerpuella.oathserver.security.TokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
@@ -35,7 +36,7 @@ import java.net.URL;
 
 @Service
 @RequiredArgsConstructor
-public class SocialLoginService {
+public class SocialLoginService extends CommonService{
 
     private final LoginService loginService;
 
@@ -48,9 +49,10 @@ public class SocialLoginService {
 
     private final JsonParser parser = new JsonParser();
 
-    public ResponseEntity execute(CommonDTO... params) {
+    public CommonReturnData execute(CommonDTO... params) {
 
         SocialLoginCode codeDTO = (SocialLoginCode) params[0];
+
 
         try {
 
@@ -97,11 +99,8 @@ public class SocialLoginService {
 
             // 응답Header에 토큰 저장
             tokenProvider.setTokenToHeader(accessToken);
-            HttpHeaders headers = new HttpHeaders();
 
-            headers.setLocation(URI.create(socialUtil.getRedirectFront()));
-
-            return new ResponseEntity<>(LoginDto.builder().accessToken(accessToken).build(),headers, HttpStatus.MOVED_PERMANENTLY);
+            return LoginDto.builder().accessToken(accessToken).build();
 
         } catch (Exception e) {
             e.printStackTrace();
