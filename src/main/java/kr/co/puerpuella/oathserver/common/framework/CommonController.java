@@ -4,6 +4,7 @@ package kr.co.puerpuella.oathserver.common.framework;
 import kr.co.puerpuella.oathserver.common.framework.exception.ValidationException;
 import kr.co.puerpuella.oathserver.common.framework.response.CommonReturnData;
 import kr.co.puerpuella.oathserver.common.framework.response.ResponseBody;
+import org.springframework.http.ResponseEntity;
 
 /**
  * Rest컨트롤러의 공통기능

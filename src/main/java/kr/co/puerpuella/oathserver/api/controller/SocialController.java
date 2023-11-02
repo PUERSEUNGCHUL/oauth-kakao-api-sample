@@ -34,11 +34,12 @@ public class SocialController extends CommonController {
     }
 
     @GetMapping("/members/login/social/{provider}/redirect")
-    public ResponseBody socialLogin(
+    public ResponseEntity socialLogin(
             @PathVariable("provider") String provider,
             @RequestParam("code") String code) {
 
-        return execute(socialLoginService, SocialLoginCode.builder().provider(provider).code(code).build());
+        return socialLoginService.execute(SocialLoginCode.builder().provider(provider).code(code).build());
+
 
     }
 }

@@ -3,10 +3,12 @@ package kr.co.puerpuella.oathserver.security;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import kr.co.puerpuella.oathserver.model.entity.Member;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -56,6 +58,18 @@ public class TokenProvider implements InitializingBean {
         this.tokenValidityInMiliseconds = tokenValidityInSeconds * 1000;
     }
 
+    public String createToken(Member savedMember) {
+        long now = (new Date()).getTime();
+
+        Date validity = new Date(now + this.tokenValidityInMiliseconds);
+
+        return Jwts.builder()
+                .setSubject(savedMember.getUid().toString())
+                .claim(AUTHORITIES_KEY, savedMember.getRole().getRoleKey()) // 정보 저장
+                .signWith(key, SignatureAlgorithm.HS512) // 사용할 암호화 알고리즘과 , signature 에 들어갈 secret값 세팅
+                .setExpiration(validity) // set Expire Time 해당 옵션 안넣으면 expire안함
+                .compact();
+    }
     public String createToken(Authentication authentication) {
 
         String authorities = authentication.getAuthorities().stream()
@@ -111,6 +125,15 @@ public class TokenProvider implements InitializingBean {
             logger.info("JWT 토큰이 잘못되었습니다.");
         }
         return false;
+    }
+
+    /**
+     * 발급받은 Access,Refresh 토큰을 응답Header에 설정한다.
+     * @param accessToken
+     */
+    public void setTokenToHeader(String accessToken) {
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.add(JwtFilter.AUTHORIZATION_HEADER, "Bearer " + accessToken);
     }
 
 }

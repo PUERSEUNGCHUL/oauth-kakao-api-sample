@@ -5,14 +5,24 @@ import com.google.gson.JsonParser;
 import kr.co.puerpuella.oathserver.api.dto.MemberInfoDto;
 import kr.co.puerpuella.oathserver.api.dto.SocialLoginCode;
 import kr.co.puerpuella.oathserver.api.dto.form.LoginForm;
+import kr.co.puerpuella.oathserver.api.dto.result.LoginDto;
 import kr.co.puerpuella.oathserver.api.util.SocialUtil;
 import kr.co.puerpuella.oathserver.common.enums.ErrorInfo;
 import kr.co.puerpuella.oathserver.common.framework.CommonDTO;
 import kr.co.puerpuella.oathserver.common.framework.CommonService;
 import kr.co.puerpuella.oathserver.common.framework.exception.ValidationException;
 import kr.co.puerpuella.oathserver.common.framework.response.CommonReturnData;
+import kr.co.puerpuella.oathserver.common.framework.response.ResponseBody;
+import kr.co.puerpuella.oathserver.model.entity.Member;
+import kr.co.puerpuella.oathserver.model.repositories.MemberRepository;
+import kr.co.puerpuella.oathserver.security.TokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -20,19 +30,25 @@ import java.io.BufferedWriter;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 
 @Service
 @RequiredArgsConstructor
-public class SocialLoginService extends CommonService {
+public class SocialLoginService {
 
     private final LoginService loginService;
 
     private final SocialUtil socialUtil;
 
+    private final MemberRepository memberRepository;
+
+    private final TokenProvider tokenProvider;
+
+
     private final JsonParser parser = new JsonParser();
-    @Override
-    protected CommonReturnData execute(CommonDTO... params) {
+
+    public ResponseEntity execute(CommonDTO... params) {
 
         SocialLoginCode codeDTO = (SocialLoginCode) params[0];
 
@@ -49,21 +65,43 @@ public class SocialLoginService extends CommonService {
             String responseStr = receiveResponse(tokenProviderConnection);
 
             // 응답에서 토큰값 꺼내기
-            String accessToken = getAccessToken(responseStr);
+            String socialAccessToken = getAccessToken(responseStr);
 
             // 유저정보 요청관련 정보 설정
             URL userInfoProviderURL = new URL(socialUtil.getUserInfoProviderURL(codeDTO.getProvider()));
             HttpURLConnection userInfoProviderConnection = (HttpURLConnection) userInfoProviderURL.openConnection();
 
             // 유저정보 요청
-            sendRequestForUserInfo(userInfoProviderConnection, accessToken);
+            sendRequestForUserInfo(userInfoProviderConnection, socialAccessToken);
 
             // 유저정보 응답
             String userInfoResponseStr = receiveUserInfo(userInfoProviderConnection);
 
             LoginForm memberInfo = getUserInfo(userInfoResponseStr, codeDTO);
 
-            return loginService.execute(memberInfo);
+            Member savedMember = memberRepository.findOneByEmail(memberInfo.getEmail());
+
+            // 가입되어 있는 회원인지 체크
+            if (savedMember == null) {
+                throw new ValidationException(ErrorInfo.LOGIN_NO_EMAIL);
+            }
+
+
+
+            // 신규 액세스토큰 발급
+            String accessToken = tokenProvider.createToken(savedMember);
+
+            Authentication authentication = tokenProvider.getAuthentication(accessToken);
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            // 응답Header에 토큰 저장
+            tokenProvider.setTokenToHeader(accessToken);
+            HttpHeaders headers = new HttpHeaders();
+
+            headers.setLocation(URI.create(socialUtil.getRedirectFront()));
+
+            return new ResponseEntity<>(LoginDto.builder().accessToken(accessToken).build(),headers, HttpStatus.MOVED_PERMANENTLY);
 
         } catch (Exception e) {
             e.printStackTrace();

@@ -44,4 +44,10 @@ public class SocialUtil {
         return userInfoURL;
 
     }
+    public String getRedirectFront() {
+        String userInfoURL = env.getProperty("spring.security.oauth2.client.redirect");
+
+        return userInfoURL;
+
+    }
 }
