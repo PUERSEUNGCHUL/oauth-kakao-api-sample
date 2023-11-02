@@ -19,4 +19,8 @@ public class MemberInfoDto extends CommonReturnData {
     private String nickname;
 
     private Roles role;
+
+    private String provider;
+
+    private Long providerId;
 }

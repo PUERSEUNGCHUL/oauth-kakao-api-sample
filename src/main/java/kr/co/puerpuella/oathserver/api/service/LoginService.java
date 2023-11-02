@@ -43,6 +43,40 @@ public class LoginService extends CommonService implements UserDetailsService {
 
         LoginForm loginForm = (LoginForm) params[0];
 
+        if (loginForm.isSocial()) {
+
+            //이메일이 같고, provider
+            return socialLogin(loginForm);
+        } else {
+            return emailLogin(loginForm);
+        }
+    }
+
+    private LoginDto socialLogin(LoginForm loginForm) {
+        Member savedMember = memberRepository.findOneByEmail(loginForm.getEmail());
+
+        // 가입되어 있는 회원인지 체크
+        if (savedMember == null) {
+            throw new ValidationException(ErrorInfo.LOGIN_NO_EMAIL);
+        }
+
+        // 사용자의 아이디 또는 소셜 ID를 사용하여 UsernamePasswordAuthenticationToken을 생성
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(savedMember.getUid(), null);
+
+        // 사용자를 인증
+        Authentication authenticate = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+
+        SecurityContextHolder.getContext().setAuthentication(authenticate);
+
+        // 신규 액세스토큰 발급
+        String accessToken = createAccessToken(loginForm, savedMember);
+
+        // 응답Header에 토큰 저장
+        setTokenToHeader(accessToken);
+
+        return new LoginDto(accessToken);
+    }
+    private LoginDto emailLogin(LoginForm loginForm) {
         Member savedMember = memberRepository.findOneByEmail(loginForm.getEmail());
 
         //가입되어 있는 회원인지 체크
@@ -103,6 +137,6 @@ public class LoginService extends CommonService implements UserDetailsService {
 
         Member member = memberRepository.findOneByUid(Long.parseLong(uid));
 
-        return new User(member.getUid().toString(),member.getPassword(), member.getAuthorities());
+        return new User(member.getUid().toString(),"", member.getAuthorities());
     }
 }

@@ -57,6 +57,7 @@ public class MemberJoinService extends CommonService {
                 .email(newMember.getEmail())
                 .nickname(newMember.getNickname())
                 .role(newMember.getRole())
+                .provider(newMember.getProvider())
         .build();
 
     }

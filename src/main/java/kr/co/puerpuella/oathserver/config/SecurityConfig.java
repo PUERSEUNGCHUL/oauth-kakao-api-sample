@@ -1,7 +1,6 @@
 package kr.co.puerpuella.oathserver.config;
 
-import kr.co.puerpuella.oathserver.security.JwtAccessDeniedHandler;
-import kr.co.puerpuella.oathserver.security.JwtAuthenticationEntryPoint;
+import kr.co.puerpuella.oathserver.security.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,8 +11,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.servlet.util.matcher.MvcRequestMatcher;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -26,6 +23,8 @@ public class SecurityConfig {
 
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
+
+    private final TokenProvider tokenProvider;
 
     /**
      * BCrypt암호화 알고리즘을 이용한 암호화 변환기
@@ -55,13 +54,15 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(authorizeHttpRequests -> {
 
-                    authorizeHttpRequests.requestMatchers(new AntPathRequestMatcher("/h2/**")).permitAll();
-
-                    authorizeHttpRequests.requestMatchers(new MvcRequestMatcher(introspector,"/main")).authenticated();
                     authorizeHttpRequests.anyRequest().permitAll();
                 })
-        ;
+                .logout(httpSecurityLogoutConfigurer -> {
+                    httpSecurityLogoutConfigurer.logoutSuccessUrl("/");
+                })
 
+                .apply(new JwtSecurityConfig(tokenProvider))
+
+        ;
 
         return httpSecurity.build();
     }

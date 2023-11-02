@@ -25,9 +25,13 @@ public class JoinForm extends CommonDTO {
 
     private String password;
 
+    private String provider;
+
+    private Long providerId;
+
     public void encryptPassword(PasswordEncoder passwordEncoder) {
 
-        this.password = passwordEncoder.encode(this.password);
+        this.password = this.password != null ? passwordEncoder.encode(this.password) : null;
     }
 
     public Member toEntity() {
@@ -36,6 +40,8 @@ public class JoinForm extends CommonDTO {
                 .nickname(this.nickname)
                 .password(this.password)
                 .role(Roles.MEMBER)
+                .provider(this.provider)
+                .providerId(this.providerId)
 
                 .build();
     }

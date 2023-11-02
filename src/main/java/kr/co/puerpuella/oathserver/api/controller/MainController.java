@@ -3,7 +3,6 @@ package kr.co.puerpuella.oathserver.api.controller;
 import kr.co.puerpuella.oathserver.api.dto.TestDTO;
 import kr.co.puerpuella.oathserver.api.dto.form.JoinForm;
 import kr.co.puerpuella.oathserver.api.dto.form.LoginForm;
-import kr.co.puerpuella.oathserver.api.service.KakaoLoginService;
 import kr.co.puerpuella.oathserver.api.service.LoginService;
 import kr.co.puerpuella.oathserver.api.service.MemberJoinService;
 import kr.co.puerpuella.oathserver.common.framework.CommonController;
@@ -57,5 +56,7 @@ public class MainController extends CommonController {
     public ResponseBody oauth() {
         return execute(kakaoLoginService);
     }
+
+
 
 }

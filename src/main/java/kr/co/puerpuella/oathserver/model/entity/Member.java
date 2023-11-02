@@ -30,9 +30,11 @@ public class Member {
 
     private String password;
 
-    private Long kakaoId;
-
     private Roles role;
+
+    private String provider;
+
+    private Long providerId;
 
     /**
      * 권한 컬렉션 생성

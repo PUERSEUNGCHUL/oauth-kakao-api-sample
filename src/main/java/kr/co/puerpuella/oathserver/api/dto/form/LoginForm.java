@@ -15,7 +15,10 @@ import lombok.NoArgsConstructor;
 @Builder
 public class LoginForm extends CommonDTO {
 
-    private Long kakaoId;
     private String email;
+    private String nickname;
     private String password;
+    private boolean isSocial;
+    private String provider;
+    private Long providerId;
 }
