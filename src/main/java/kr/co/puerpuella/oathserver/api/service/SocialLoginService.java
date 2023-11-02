@@ -116,16 +116,36 @@ public class SocialLoginService extends CommonService{
             throw new Exception("유저정보가 존재하지 않습니다.");
         }
 
+        String socialId = null;
+        String nickname = null;
+        String email = null;
 
-        Long kakaoId = jo.get("id").getAsLong();
-        String nickname = jo.get("kakao_account").getAsJsonObject().get("profile").getAsJsonObject().get("nickname").getAsString();
-        String email = jo.get("kakao_account").getAsJsonObject().get("email").getAsString();
 
+        switch (codeDTO.getProvider()) {
+            case "kakao" : {
+                socialId = jo.get("id").getAsLong()+"";
+                nickname = jo.get("kakao_account").getAsJsonObject().get("profile").getAsJsonObject().get("nickname").getAsString();
+                email = jo.get("kakao_account").getAsJsonObject().get("email").getAsString();
+
+                break;
+            }
+            case "naver" : {
+                socialId = jo.getAsJsonObject("response").get("id").getAsString();
+                nickname = jo.getAsJsonObject("response").get("nickname").getAsString();
+                email = jo.getAsJsonObject("response").get("email").getAsString();
+
+                break;
+            }
+
+            default: {
+                throw new ValidationException(ErrorInfo.SYSTEM_ERROR);
+            }
+        }
         return LoginForm.builder()
                 .email(email)
                 .provider(codeDTO.getProvider())
                 .nickname(nickname)
-                .providerId(kakaoId)
+                .providerId(socialId)
                 .isSocial(true)
         .build();
     }
@@ -154,6 +174,8 @@ public class SocialLoginService extends CommonService{
             throw new Exception("Access토큰을 받지 못했습니다.");
         }
 
+        System.out.println("response = " + response);
+
        return jo.get("access_token").getAsString();
     }
 
@@ -180,9 +202,10 @@ public class SocialLoginService extends CommonService{
         StringBuilder sb = new StringBuilder();
         //TODO 카카오기준으로 작성(구글/페이스북/네이버 등이 다를경우 인터페이스화 필요)
         sb.append("grant_type=authorization_code");
-        sb.append("&client_id="+socialUtil.getSecretKey(codeDTO.getProvider()));
+        sb.append("&client_id="+socialUtil.getClientId(codeDTO.getProvider()));
         sb.append("&redirect_uri="+socialUtil.getRedirectUri(codeDTO.getProvider()));
         sb.append("&code="+codeDTO.getCode());
+        sb.append("&client_secret="+socialUtil.getSecretKey(codeDTO.getProvider()));
         bw.write(sb.toString());
 
         bw.flush();

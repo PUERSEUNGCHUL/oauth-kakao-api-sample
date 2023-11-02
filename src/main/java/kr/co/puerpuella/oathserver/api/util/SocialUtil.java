@@ -28,8 +28,13 @@ public class SocialUtil {
         return tokenURL;
     }
 
-    public String getSecretKey(String provider) {
+    public String getClientId(String provider) {
         String clientId = env.getProperty("spring.security.oauth2.client.registration." + provider + ".client-id");
+        return clientId;
+    }
+
+    public String getSecretKey(String provider) {
+        String clientId = env.getProperty("spring.security.oauth2.client.registration." + provider + ".client-secret");
         return clientId;
     }
 

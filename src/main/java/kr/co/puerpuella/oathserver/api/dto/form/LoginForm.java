@@ -20,5 +20,5 @@ public class LoginForm extends CommonDTO {
     private String password;
     private boolean isSocial;
     private String provider;
-    private Long providerId;
+    private String providerId;
 }
