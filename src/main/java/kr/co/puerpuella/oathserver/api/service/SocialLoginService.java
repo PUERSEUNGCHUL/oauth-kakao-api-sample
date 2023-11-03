@@ -112,7 +112,9 @@ public class SocialLoginService extends CommonService{
 
         Base64.Decoder decoder = Base64.getUrlDecoder();
 
-        String decodedJWT = String.valueOf(decoder.decode(jwt));
+        String decodedJWT = new String(decoder.decode(jwt.split("\\.")[1]));
+
+        System.out.println("decodedJWT = " + decodedJWT);
 
         JsonObject jwtJO = (JsonObject) parser.parse(decodedJWT);
 
