@@ -33,6 +33,7 @@ import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
+import java.util.Base64;
 
 @Service
 @RequiredArgsConstructor
@@ -66,20 +67,16 @@ public class SocialLoginService extends CommonService{
             // 토큰 응답
             String responseStr = receiveResponse(tokenProviderConnection);
 
-            // 응답에서 토큰값 꺼내기
-            String socialAccessToken = getAccessToken(responseStr);
+            System.out.println("responseStr = " + responseStr);
 
-            // 유저정보 요청관련 정보 설정
-            URL userInfoProviderURL = new URL(socialUtil.getUserInfoProviderURL(codeDTO.getProvider()));
-            HttpURLConnection userInfoProviderConnection = (HttpURLConnection) userInfoProviderURL.openConnection();
+            LoginForm memberInfo = null;
+            if ("google".equals(codeDTO.getProvider())) {
+                memberInfo = findMemberForJWT(responseStr, codeDTO);
+            } else if ("kakao".equals(codeDTO.getProvider()) || "naver".equals(codeDTO.getProvider())) {
 
-            // 유저정보 요청
-            sendRequestForUserInfo(userInfoProviderConnection, socialAccessToken);
+                memberInfo = findMemberForSearchUserInfo(responseStr, codeDTO);
+            }
 
-            // 유저정보 응답
-            String userInfoResponseStr = receiveUserInfo(userInfoProviderConnection);
-
-            LoginForm memberInfo = getUserInfo(userInfoResponseStr, codeDTO);
 
             Member savedMember = memberRepository.findOneByEmail(memberInfo.getEmail());
 
@@ -108,6 +105,45 @@ public class SocialLoginService extends CommonService{
         }
     }
 
+    private LoginForm findMemberForJWT(String responseStr, SocialLoginCode codeDTO) throws Exception {
+        JsonObject jo = (JsonObject) parser.parse(responseStr);
+
+        String jwt = jo.get("id_token").getAsString();
+
+        Base64.Decoder decoder = Base64.getUrlDecoder();
+
+        String decodedJWT = String.valueOf(decoder.decode(jwt));
+
+        JsonObject jwtJO = (JsonObject) parser.parse(decodedJWT);
+
+        return LoginForm.builder()
+                .email(jwtJO.get("email").getAsString())
+                .provider(codeDTO.getProvider())
+                .nickname(jwtJO.get("name").getAsString())
+                .providerId(jwtJO.get("sub").getAsString())
+                .isSocial(true)
+                .build();
+    }
+
+
+
+    private LoginForm findMemberForSearchUserInfo(String responseStr, SocialLoginCode codeDTO) throws Exception {
+        // 응답에서 토큰값 꺼내기
+        String socialAccessToken = getAccessToken(responseStr);
+
+        // 유저정보 요청관련 정보 설정
+        URL userInfoProviderURL = new URL(socialUtil.getUserInfoProviderURL(codeDTO.getProvider()));
+        HttpURLConnection userInfoProviderConnection = (HttpURLConnection) userInfoProviderURL.openConnection();
+
+        // 유저정보 요청
+        sendRequestForUserInfo(userInfoProviderConnection, socialAccessToken);
+
+        // 유저정보 응답
+        String userInfoResponseStr = receiveUserInfo(userInfoProviderConnection);
+
+        return getUserInfo(userInfoResponseStr, codeDTO);
+    }
+
     private LoginForm getUserInfo (String response, SocialLoginCode codeDTO) throws Exception{
         System.out.println("response = " + response);
         JsonObject jo = (JsonObject) parser.parse(response.toString());
@@ -133,6 +169,13 @@ public class SocialLoginService extends CommonService{
                 socialId = jo.getAsJsonObject("response").get("id").getAsString();
                 nickname = jo.getAsJsonObject("response").get("nickname").getAsString();
                 email = jo.getAsJsonObject("response").get("email").getAsString();
+
+                break;
+            }
+            case "google" : {
+                socialId = jo.get("id").getAsString();
+                nickname = jo.get("name").getAsString();
+                email = jo.get("email").getAsString();
 
                 break;
             }
@@ -176,7 +219,7 @@ public class SocialLoginService extends CommonService{
 
         System.out.println("response = " + response);
 
-       return jo.get("access_token").getAsString();
+        return jo.get("access_token").getAsString();
     }
 
     private String receiveResponse(HttpURLConnection conn) throws Exception {
